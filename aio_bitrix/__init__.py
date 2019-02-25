@@ -1,5 +1,4 @@
 from json import loads
-from logging import info
 import asyncio
 from exceptions import  BitrixExeption
 
@@ -7,7 +6,7 @@ from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError, ContentTypeError
 
 class Bitrix(object):
-	""" Class for work with Bitrix24 REST API"""
+	""" Class wrapper for Bitrix24 REST API"""
 	# Bitrix24 oauth server
 	oauth_url = 'https://oauth.bitrix.info/oauth/token/'
 
@@ -19,7 +18,7 @@ class Bitrix(object):
 		:param client_id: str Client ID for refreshing access tokens
 		:param client_secret: str Client secret for refreshing access tokens
 		"""
-		self.crm_url = f'https://{domain}/rest/'
+		self.crm_url = f'https://{domain}rest/' if domain.endswith("/") else f'https://{domain}/rest/'
 		self.access_token = access_token
 		self.refresh_token = refresh_token
 		self.client_id = client_id
@@ -45,6 +44,8 @@ class Bitrix(object):
 			elif 'error' in json_response and json_response['error'] in 'QUERY_LIMIT_EXCEEDED':
 				await asyncio.sleep(3)
 				json_response = await self.bitrix_call(method, params)
+			else:
+				raise BitrixExeption(error=json_response['error'])
 		try:
 			return {f"{method}": json_response["result"]}
 		except KeyError:
@@ -84,7 +85,7 @@ class Bitrix(object):
 					for method in methods
 				]
 			except KeyError as e:
-				return BitrixExeption(f"miss {e}")
+				raise BitrixExeption(message=f"miss {e}")
 		elif isinstance(methods, dict):
 			futures = [
 					asyncio.ensure_future(self.bitrix_call(
@@ -99,7 +100,7 @@ class Bitrix(object):
 
 		return context
 
-	def valid_tokens(self, access_token, refresh_token):
+	def check_tokens_valid(self, access_token, refresh_token):
 		if self.access_token == access_token and self.refresh_token == refresh_token:
 			return True
 		else:
