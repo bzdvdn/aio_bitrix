@@ -23,6 +23,7 @@ class Bitrix(object):
 		self.refresh_token = refresh_token
 		self.client_id = client_id
 		self.client_secret = client_secret
+
 	
 	async def _get_fetch(self, client, url, params, headers=None):
 		try:
@@ -30,6 +31,7 @@ class Bitrix(object):
 				return await r.json()
 		except AttributeError:
 			return {"status": "error", "message": "bad response"}
+
 
 	async def bitrix_call(self, method, params=None):
 		url = f"{self.crm_url}{method}.json"
@@ -46,10 +48,18 @@ class Bitrix(object):
 				json_response = await self.bitrix_call(method, params)
 			else:
 				raise BitrixExeption(error=json_response['error'])
-		try:
-			return {f"{method}": json_response["result"]}
-		except KeyError:
-			return {f"{method}": json_response}
+			try:
+				data = json_response['result']
+				while json_response.get('next'):
+					# print(params['start'])
+					params['start'] = json_response['next']
+					query.update(params)
+					await asyncio.sleep(1.8)
+					json_response = await self._get_fetch(client, url, query)
+					data.extend(json_response['result'])
+				return {method: data}
+			except KeyError:
+				return {method: json_response}
 
 	async def update_tokens(self):
 		"""Refresh access tokens
@@ -64,11 +74,13 @@ class Bitrix(object):
 			
 			return json_response
 
+
 	def get_tokens(self):
 		return {
 			"access_token": self.access_token,
 			"refresh_token": self.refresh_token
 		}
+
 
 	async def bitrix_multi_call(self, methods):
 		"""
@@ -99,12 +111,6 @@ class Bitrix(object):
 			context.update(await f)
 
 		return context
-
-	def check_tokens_valid(self, access_token, refresh_token):
-		if self.access_token == access_token and self.refresh_token == refresh_token:
-			return True
-		else:
-			return False
 
 
 
