@@ -1,4 +1,3 @@
-# Simple Django-Mongo-models
 
 # Requirements
 
